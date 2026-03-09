@@ -1,4 +1,6 @@
 import type { GameState, Tombstone } from './GameState';
+import { LANDMARKS } from '../data/landmarks';
+import { EVENTS } from '../data/events';
 
 const SAVE_KEY = 'oregon-trail-save';
 const TOMBSTONE_KEY = 'oregon-trail-tombstones';
@@ -16,6 +18,12 @@ const VALID_AILMENTS = new Set([
   'typhoid', 'cholera', 'dysentery', 'measles', 'snakebite',
   'broken-arm', 'broken-leg', 'exhaustion', 'fever',
 ]);
+const VALID_WEATHER_CONDITIONS = new Set([
+  'clear', 'rainy', 'snowy', 'hot', 'very-cold', 'blizzard',
+]);
+const VALID_PENDING_EVENT_TYPES = new Set(['river', 'landmark', 'random-event']);
+const VALID_EVENT_IDS = new Set(EVENTS.map(e => e.id));
+const VALID_LANDMARK_NAMES = new Set(LANDMARKS.map(l => l.name));
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && isFinite(v);
@@ -70,13 +78,21 @@ function isValidGameState(data: unknown): data is GameState {
 
   if (typeof s.weather !== 'object' || s.weather === null) return false;
   const w = s.weather as Record<string, unknown>;
-  if (typeof w.condition !== 'string') return false;
+  if (!VALID_WEATHER_CONDITIONS.has(w.condition as string)) return false;
   if (!isFiniteNumber(w.temperature)) return false;
 
-  if (!Array.isArray(s.visitedLandmarks) || !s.visitedLandmarks.every((v: unknown) => typeof v === 'string')) return false;
+  if (!Array.isArray(s.visitedLandmarks) || !s.visitedLandmarks.every((v: unknown) => typeof v === 'string' && VALID_LANDMARK_NAMES.has(v))) return false;
 
   if (s.pendingEvent !== null && s.pendingEvent !== undefined) {
     if (typeof s.pendingEvent !== 'object') return false;
+    const pe = s.pendingEvent as Record<string, unknown>;
+    if (!VALID_PENDING_EVENT_TYPES.has(pe.type as string)) return false;
+    if (pe.landmarkIndex !== undefined) {
+      if (!isFiniteNumber(pe.landmarkIndex) || (pe.landmarkIndex as number) < 0 || (pe.landmarkIndex as number) >= LANDMARKS.length) return false;
+    }
+    if (pe.eventId !== undefined) {
+      if (typeof pe.eventId !== 'string' || !VALID_EVENT_IDS.has(pe.eventId)) return false;
+    }
   }
 
   if (!Array.isArray(s.tombstones) || !s.tombstones.every(isValidTombstone)) return false;
